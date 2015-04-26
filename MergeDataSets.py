@@ -96,13 +96,14 @@ def yelpPhoneQuery(phoneNumber, zipCode):
     			return business
     print('Yelp returned matches, but either NYC zipcode ({0}) did not match Yelp zipcode or NYC phone ({1}) did not match Yelp phone.'.format(zipCode, phoneNumber))
     return None
+    
 
 def writeDataHeaders():
 	headerString = ''
 	for h in OUTPUT_DATA_HEADER_NYC:
-		headerString += h + '| '
+		headerString += h + '|'
 	for h in OUTPUT_DATA_HEADER_YELP:
-		headerString += h + '| '
+		headerString += h + '|'
 	return headerString
 
 
@@ -111,9 +112,9 @@ def mergeToCsv(NYCDataJSON, YelpDataJSON):
 	nycDataOffset = 8
 	for ii in range(nycDataOffset, len(OUTPUT_DATA_HEADER_NYC)+nycDataOffset):
 		if NYCDataJSON[ii] is None:
-			csvString += 'None' + '| '
+			csvString += 'None' + '|'
 		else:
-			csvString += NYCDataJSON[ii].replace('|', ';') + '| '
+			csvString += NYCDataJSON[ii].replace('|', ';') + '|'
 
 	for h in OUTPUT_DATA_HEADER_YELP:
 		if '.' in h:
@@ -121,23 +122,23 @@ def mergeToCsv(NYCDataJSON, YelpDataJSON):
 			if parts[0] in YelpDataJSON and parts[1] in YelpDataJSON[parts[0]]:
 				if type(YelpDataJSON[parts[0]][parts[1]]) is str or type(YelpDataJSON[parts[0]][parts[1]]) is unicode:
 					try:
-						csvString += YelpDataJSON[parts[0]][parts[1]].replace('\xb7', '\\xb7').replace('|', ';').encode('utf-8', 'ignore') + '| '
+						csvString += YelpDataJSON[parts[0]][parts[1]].replace('|', ';').encode('utf-8', 'ignore') + '|'
 					except:
-						csvString += 'failed to strig-ify| '
+						csvString += 'failed to strig-ify|'
 				else:
-					csvString += str(YelpDataJSON[parts[0]][parts[1]]).replace('|', ';') + '| '
+					csvString += str(YelpDataJSON[parts[0]][parts[1]]).replace('|', ';') + '|'
 			else:
-				csvString += ' | '
+				csvString += '|'
 		elif h in YelpDataJSON:
 			if type(YelpDataJSON[h]) is str or type(YelpDataJSON[h]) is unicode:
 				try:
-					csvString += YelpDataJSON[h].replace('|', ';').encode('utf-8', 'ignore') + '| '
+					csvString += YelpDataJSON[h].replace('|', ';').encode('utf-8', 'ignore') + '|'
 				except:
-					csvString += 'failed to strig-ify| '
+					csvString += 'failed to strig-ify|'
 			else:
-				csvString += str(YelpDataJSON[h]).replace('|', ';') + '| '
+				csvString += str(YelpDataJSON[h]).replace('|', ';') + '|'
 		else:
-			csvString += ' | '
+			csvString += '|'
 	return csvString
 
 
