@@ -3,6 +3,7 @@ import json
 import pprint
 import os
 import sys
+import string
 import urllib
 import urllib2
 import oauth2
@@ -15,7 +16,7 @@ SEARCH_PATH = '/v2/search/'
 PHONE_SEARCH_PATH = '/v2/phone_search/'
 BUSINESS_SEARCH_PATH = '/v2/business/'
 
-# OAuth credential will be loaded from config file
+# OAuth credentials will be loaded from config file
 CONSUMER_KEY = ''
 CONSUMER_SECRET = ''
 TOKEN = ''
@@ -25,6 +26,9 @@ CONFIG_FILE = 'OAuthCredentials.config'
 NYC_RESTAURANT_HEALTH_DATA_FILE = 'NYCData.json'
 MERGED_DATA_FILE = 'MergedYelpAndNYCData'
 NYCData_URL = 'https://data.cityofnewyork.us/api/views/xx67-kt59/rows.json'
+OUTPUT_DATA_HEADER_NYC = ['CAMIS', 'DBA', 'BORO', 'BUILDING', 'STREET', 'ZIPCODE', 'PHONE', 'CUISINE_DESCRIPTION', 'INSPECTION_DATE', 'ACTION', 'VIOLATION_CODE', 'VIOLATION_DESCRIPTION', 'CRITICAL_FLAG', 'SCORE', 'GRADE', 'GRADE_DATE', 'RECORD_DATE', 'INSPECTION_TYPE']
+OUTPUT_DATA_HEADER_YELP = ['id', 'is_claimed', 'is_closed', 'name', 'image_url', 'url', 'mobile_url', 'phone', 'display_phone', 'review_count', 'categories', 'distance', 'rating', 'rating_img_url', 'rating_img_url_small', 'rating_img_url_large', 'snippet_text', 'snippet_image_url', 'location', 'location.address', 'location.display_address', 'location.city', 'location.state_code', 'location.postal_code', 'location.country_code', 'location.cross_streets', 'location.neighborhoods', 'deals', 'gift_certificates', 'menu_provider', 'menu_date_updated']
+
 
 
 def request(host, path, url_params=None):
@@ -82,18 +86,67 @@ def yelpPhoneQuery(phoneNumber, zipCode):
     	print('No businesses for {0} found.'.format(phoneNumber))
     	return
     for business in businesses:
-    	if ('postal_code' in business['location']):
+    	if ('postal_code' in business['location'] and 'phone' in business):
     		businessZipCode = business['location']['postal_code']
+    		businessPhoneNumber = business['phone']
     		if (businessZipCode == zipCode):
+    			if (phoneNumber != businessPhoneNumber[2:]):
+    				print('OYYYYYY: {0}, {1}'.format(phoneNumber, zipCode))
     			print('Found match for {0}'.format(phoneNumber))
     			return business
-    print('Phone Number match found, but no zipcode matches for {0} in {1}'.format(phoneNumber, zipCode))
+    print('Yelp returned matches, but either NYC zipcode ({0}) did not match Yelp zipcode or NYC phone ({1}) did not match Yelp phone.'.format(zipCode, phoneNumber))
     return None
+
+def writeDataHeaders():
+	headerString = ''
+	for h in OUTPUT_DATA_HEADER_NYC:
+		headerString += h + '| '
+	for h in OUTPUT_DATA_HEADER_YELP:
+		headerString += h + '| '
+	return headerString
+
+
+def mergeToCsv(NYCDataJSON, YelpDataJSON):
+	csvString = ''
+	nycDataOffset = 8
+	for ii in range(nycDataOffset, len(OUTPUT_DATA_HEADER_NYC)+nycDataOffset):
+		if NYCDataJSON[ii] is None:
+			csvString += 'None' + '| '
+		else:
+			csvString += NYCDataJSON[ii].replace('|', ';') + '| '
+
+	for h in OUTPUT_DATA_HEADER_YELP:
+		if '.' in h:
+			parts = string.split(h, '.')
+			if parts[0] in YelpDataJSON and parts[1] in YelpDataJSON[parts[0]]:
+				if type(YelpDataJSON[parts[0]][parts[1]]) is str or type(YelpDataJSON[parts[0]][parts[1]]) is unicode:
+					try:
+						csvString += YelpDataJSON[parts[0]][parts[1]].replace('\xb7', '\\xb7').replace('|', ';').encode('utf-8', 'ignore') + '| '
+					except:
+						csvString += 'failed to strig-ify| '
+				else:
+					csvString += str(YelpDataJSON[parts[0]][parts[1]]).replace('|', ';') + '| '
+			else:
+				csvString += ' | '
+		elif h in YelpDataJSON:
+			if type(YelpDataJSON[h]) is str or type(YelpDataJSON[h]) is unicode:
+				try:
+					csvString += YelpDataJSON[h].replace('|', ';').encode('utf-8', 'ignore') + '| '
+				except:
+					csvString += 'failed to strig-ify| '
+			else:
+				csvString += str(YelpDataJSON[h]).replace('|', ';') + '| '
+		else:
+			csvString += ' | '
+	return csvString
+
 
 def parseAndMerge(jsonData):
 	print('Starting parseAndMerge')
 
 	outputFile = open(MERGED_DATA_FILE, "w")
+	outputFile.write(writeDataHeaders())
+	outputFile.write('\n')
 
 	prevPhone = ''
 	prevZipCode = ''
@@ -115,8 +168,9 @@ def parseAndMerge(jsonData):
 			prevBusiness = business
 		if(business is not None):
 			totalNumberMatched += 1
-			outputFile.write(str(data))
-			outputFile.write(str(business))
+			out = mergeToCsv(data, business)
+			out = out.replace('\n', '\\n')
+			outputFile.write(out.encode('utf-8'))
 			outputFile.write('\n')
 		else:
 			totalNumberMissed += 1
