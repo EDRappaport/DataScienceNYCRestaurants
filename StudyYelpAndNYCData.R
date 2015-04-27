@@ -34,7 +34,8 @@ ggplot(data = dataWithoutNoneScoresAndGrades, aes(x=rating)) + geom_histogram()
 ggplot(data = dataWithoutNoneScoresAndGrades, aes(x=review_count)) + geom_histogram()
 
 ggplot(data=dataWithoutNoneScoresAndGrades,aes(x=as.factor(GRADE),y=SCORE)) +  geom_point()
-ggplot(data=subset(dataWithoutNoneScoresAndGrades, grepl('11229',ZIPCODE)),aes(x=rating,y=SCORE)) +  geom_point()
+ggplot(data=subset(dataWithoutNoneScoresAndGrades, grepl('BROOKLYN',BORO)),aes(x=rating,y=SCORE)) +  geom_point()
+ggplot(data=subset(dataWithoutNoneScoresAndGrades, grepl('BROOKLYN',BORO)),aes(x=review_count,y=SCORE)) +  geom_point()
 
 library(lattice)
 attach(dataWithoutNoneScoresAndGrades)
@@ -47,3 +48,15 @@ cloud(SCORE~rating*as.factor(BORO))
 dotplot(~SCORE|as.factor(BORO))
 dotplot(~rating|as.factor(BORO))
 detach(dataWithoutNoneScoresAndGrades)
+
+mostRecentDateInds <- function(x)
+{
+  indOfMaxDate <- which(max(as.Date(x))  ==  as.Date(x), arr.ind = TRUE)[1]
+  return(indOfMaxDate)
+}
+
+
+#Starting to Deal with GroupBys (aggregates in R)
+tmp <- aggregate(x=GRADE_DATE, by=list(CAMIS), subset(dataWithoutNoneScoresAndGrades, !grepl('None', GRADE_DATE)), FUN = mostRecentDateInds)
+tmp <- aggregate(SCORE ~ CAMIS, subset(dataWithoutNoneScoresAndGrades, !grepl('None', GRADE_DATE)), FUN =mean)
+tmp2 <- transform(subset(dataWithoutNoneScoresAndGrades, !grepl('None', GRADE_DATE)), MeanScore = ave(SCORE, CAMIS, FUN = mean), MinScore = ave(SCORE, CAMIS, FUN = min), MaxScore = ave(SCORE, CAMIS, FUN = max), StdScore = ave(SCORE, CAMIS, FUN = sd))
