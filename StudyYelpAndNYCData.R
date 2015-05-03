@@ -17,6 +17,7 @@ data <- subset(data, !is.na(phone))
 data$SCORE <- as.numeric(as.character(data$SCORE))
 data$review_count <- as.numeric(as.character(data$review_count))
 data$rating <- as.numeric(as.character(data$rating))
+data$HasViolation <- ifelse(grepl('None', data$VIOLATION_CODE),0,1)
 
 # Confirm data properties that we expect
 if (any((data['PHONE'] == substr(data[,'phone'],2,11)) == FALSE))
@@ -27,8 +28,22 @@ if (any((data['ZIPCODE'] == data['location.postal_code']) == FALSE))
 {
   warning('There is at least 1 row where the zipcode from NYC data is not the same as from the YELP data.  This breaks our assumption of the collected data.')
 }
+data <- transform(data, VIOLATION_COUNT = ave(HasViolation, CAMIS, FUN = sum))
 
-dataWithoutNoneScoresAndGrades <- subset(subset(data, !grepl('None', SCORE)), !grepl('None', GRADE))
+
+dataWithoutNoneScoresAndGrades <- subset(
+  subset(data, !grepl('None', SCORE)), !grepl('None', GRADE))
+
+aggregatedData <- transform(
+  subset(dataWithoutNoneScoresAndGrades, !grepl('None', GRADE_DATE)),
+  MeanScore = ave(SCORE, CAMIS, FUN = mean),
+  MinScore = ave(SCORE, CAMIS, FUN = min),
+  MaxScore = ave(SCORE, CAMIS, FUN = max),
+  StdScore = ave(SCORE, CAMIS, FUN = sd))
+
+groupedData <- aggregate(SCORE ~ CAMIS+DBA+BORO+rating+review_count+VIOLATION_COUNT+MeanScore+MaxScore+MinScore+StdScore,
+                         aggregatedData, FUN=mean)
+
 ggplot(data = dataWithoutNoneScoresAndGrades, aes(x=SCORE)) + geom_histogram()
 ggplot(data = dataWithoutNoneScoresAndGrades, aes(x=rating)) + geom_histogram()
 ggplot(data = dataWithoutNoneScoresAndGrades, aes(x=review_count)) + geom_histogram()
@@ -38,7 +53,7 @@ ggplot(data=subset(dataWithoutNoneScoresAndGrades, grepl('BROOKLYN',BORO)),aes(x
 ggplot(data=subset(dataWithoutNoneScoresAndGrades, grepl('BROOKLYN',BORO)),aes(x=review_count,y=SCORE)) +  geom_point()
 
 library(lattice)
-attach(dataWithoutNoneScoresAndGrades)
+
 xyplot(review_count~SCORE)
 xyplot(SCORE~rating)
 cloud(SCORE~rating*as.factor(ZIPCODE))
@@ -49,14 +64,16 @@ dotplot(~SCORE|as.factor(BORO))
 dotplot(~rating|as.factor(BORO))
 detach(dataWithoutNoneScoresAndGrades)
 
-mostRecentDateInds <- function(x)
-{
-  indOfMaxDate <- which(max(as.Date(x))  ==  as.Date(x), arr.ind = TRUE)[1]
-  return(indOfMaxDate)
-}
-
 
 #Starting to Deal with GroupBys (aggregates in R)
 tmp <- aggregate(x=GRADE_DATE, by=list(CAMIS), subset(dataWithoutNoneScoresAndGrades, !grepl('None', GRADE_DATE)), FUN = mostRecentDateInds)
 tmp <- aggregate(SCORE ~ CAMIS, subset(dataWithoutNoneScoresAndGrades, !grepl('None', GRADE_DATE)), FUN =mean)
-tmp2 <- transform(subset(dataWithoutNoneScoresAndGrades, !grepl('None', GRADE_DATE)), MeanScore = ave(SCORE, CAMIS, FUN = mean), MinScore = ave(SCORE, CAMIS, FUN = min), MaxScore = ave(SCORE, CAMIS, FUN = max), StdScore = ave(SCORE, CAMIS, FUN = sd))
+tmp2 <- transform(subset(dataWithoutNoneScoresAndGrades, !grepl('None', GRADE_DATE)), MeanScore = ave(SCORE, CAMIS, FUN = mean), MinScore = ave(SCORE, CAMIS, FUN = min), MaxScore = ave(SCORE, CAMIS, FUN = max), StdScore = ave(SCORE, CAMIS, FUN = sd), COUNT = ave(CAMIS, CAMIS, table(CAMIS)))
+
+
+tmp <- aggregate(aggregatedData$SCORE ~ aggregatedData$CAMIS+ aggregatedData$DBA+
+                   aggregatedData$BORO+ aggregatedData$BUILDING+ aggregatedData$STREET+
+                   aggregatedData$ZIPCODE+ aggregatedData$PHONE+aggregatedData$CUISINE_DESCRIPTION,
+                 aggregatedData, FUN = sum)
+
+tmp <- aggregate(SCORE ~ CAMIS+DBA+BORO+BUILDING+STREET, subset(dataWithoutNoneScoresAndGrades, !grepl('None', GRADE_DATE)), FUN =mean)
