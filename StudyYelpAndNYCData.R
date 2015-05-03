@@ -1,4 +1,7 @@
 # Process MergedYelpAndNYCData
+installed.packages('ggplot2')
+library(ggplot2)
+library(lattice)
 
 dataFile <- 'MergedYelpAndNYCData'
 
@@ -45,35 +48,31 @@ groupedData <- aggregate(SCORE ~ CAMIS+DBA+BORO+rating+review_count+VIOLATION_CO
                          aggregatedData, FUN=mean)
 
 ggplot(data = dataWithoutNoneScoresAndGrades, aes(x=SCORE)) + geom_histogram()
-ggplot(data = dataWithoutNoneScoresAndGrades, aes(x=rating)) + geom_histogram()
+ggplot(data = groupedData, aes(x=rating)) + geom_histogram()
 ggplot(data = dataWithoutNoneScoresAndGrades, aes(x=review_count)) + geom_histogram()
 
 ggplot(data=dataWithoutNoneScoresAndGrades,aes(x=as.factor(GRADE),y=SCORE)) +  geom_point()
 ggplot(data=subset(dataWithoutNoneScoresAndGrades, grepl('BROOKLYN',BORO)),aes(x=rating,y=SCORE)) +  geom_point()
 ggplot(data=subset(dataWithoutNoneScoresAndGrades, grepl('BROOKLYN',BORO)),aes(x=review_count,y=SCORE)) +  geom_point()
 
-library(lattice)
+ggplot(data=groupedData,aes(x=rating,y=SCORE)) +  geom_point()
 
-xyplot(review_count~SCORE)
-xyplot(SCORE~rating)
-cloud(SCORE~rating*as.factor(ZIPCODE))
-dotplot(~SCORE|as.factor(ZIPCODE))
-dotplot(~rating|as.factor(ZIPCODE))
-cloud(SCORE~rating*as.factor(BORO))
-dotplot(~SCORE|as.factor(BORO))
+attach(groupedData)
+xyplot(review_count~MeanScore, xlab="Mean Health Rating Score (lower is better)",
+       ylab="Number of Reviews", main="Number of Review on Yelp vs. NYC Health Score")
+xyplot(rating~MeanScore, xlab="Mean Health Rating Score (lower is better)",
+       ylab="Average Yelp Rating", main="Average Yelp Review Rating vs. NYC Health Score")
+xyplot(VIOLATION_COUNT~rating, xlab="Average Yelp Rating",
+       ylab="Number of Violations Cited in NYC Health Data",
+       main="Number of Violations vs. Yelp Rating")
+cloud(MeanScore~rating*as.factor(BORO), main="Mean Health Rating Score vs. Yelp Rating By Boro")
+dotplot(~MeanScore|as.factor(BORO))
 dotplot(~rating|as.factor(BORO))
-detach(dataWithoutNoneScoresAndGrades)
-
-
-#Starting to Deal with GroupBys (aggregates in R)
-tmp <- aggregate(x=GRADE_DATE, by=list(CAMIS), subset(dataWithoutNoneScoresAndGrades, !grepl('None', GRADE_DATE)), FUN = mostRecentDateInds)
-tmp <- aggregate(SCORE ~ CAMIS, subset(dataWithoutNoneScoresAndGrades, !grepl('None', GRADE_DATE)), FUN =mean)
-tmp2 <- transform(subset(dataWithoutNoneScoresAndGrades, !grepl('None', GRADE_DATE)), MeanScore = ave(SCORE, CAMIS, FUN = mean), MinScore = ave(SCORE, CAMIS, FUN = min), MaxScore = ave(SCORE, CAMIS, FUN = max), StdScore = ave(SCORE, CAMIS, FUN = sd), COUNT = ave(CAMIS, CAMIS, table(CAMIS)))
-
-
-tmp <- aggregate(aggregatedData$SCORE ~ aggregatedData$CAMIS+ aggregatedData$DBA+
-                   aggregatedData$BORO+ aggregatedData$BUILDING+ aggregatedData$STREET+
-                   aggregatedData$ZIPCODE+ aggregatedData$PHONE+aggregatedData$CUISINE_DESCRIPTION,
-                 aggregatedData, FUN = sum)
-
-tmp <- aggregate(SCORE ~ CAMIS+DBA+BORO+BUILDING+STREET, subset(dataWithoutNoneScoresAndGrades, !grepl('None', GRADE_DATE)), FUN =mean)
+histogram(MeanScore, breaks = seq(-2.5,65,2.5),
+          type="count", xlab="Mean Health Rating Score (lower is better)",
+          main="Histogram of the MeanScore")
+xyplot(subset(groupedData, review_count > 25)$review_count~MeanScore,
+       xlab="Mean Health Rating Score (lower is better)",
+       ylab="Number of Yelp Reviews > 25 reviews",
+       main="For Businesses with more than 25 Reviews: Number of Reviews vs Health Score")
+detach(groupedData)
